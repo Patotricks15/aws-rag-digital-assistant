@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${project_name} — Self-Service Digital Assistant</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --panel: rgba(15, 23, 42, 0.9);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --border: rgba(148, 163, 184, 0.22);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: linear-gradient(135deg, #020617 0%, #0f172a 55%, #111827 100%);
+      padding: 40px 20px;
+    }
+    .shell {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+    }
+    h1 { font-size: 1.8rem; margin-top: 0; }
+    p.lede { color: var(--muted); }
+    #chat {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .msg { padding: 12px 14px; border-radius: 12px; line-height: 1.5; }
+    .msg.user { background: rgba(34, 211, 238, 0.14); align-self: flex-end; }
+    .msg.assistant { background: rgba(255, 255, 255, 0.05); }
+    .msg .citations { margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+    form { display: flex; gap: 10px; margin-top: 20px; }
+    input {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: wait; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Self-Service Digital Assistant</h1>
+    <p class="lede">Ask a question about the company's knowledge base. Answers are grounded with Retrieval Augmented Generation.</p>
+
+    <div id="chat"></div>
+
+    <form id="chat-form">
+      <input id="prompt" type="text" placeholder="e.g. What is our refund policy?" autocomplete="off" required />
+      <button id="send" type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const CHATBOT_URL = "${chatbot_function_url}";
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chat-form");
+    const promptInput = document.getElementById("prompt");
+    const sendButton = document.getElementById("send");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const prompt = promptInput.value.trim();
+      if (!prompt) return;
+
+      addMessage("user", prompt);
+      promptInput.value = "";
+      sendButton.disabled = true;
+
+      try {
+        const response = await fetch(CHATBOT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status $${response.status}`);
+        }
+
+        const data = await response.json();
+        addMessage("assistant", data.answer, data.citations);
+      } catch (err) {
+        addMessage("assistant", `Error: $${err.message}`);
+      } finally {
+        sendButton.disabled = false;
+      }
+    });
+
+    function addMessage(role, text, citations) {
+      const el = document.createElement("div");
+      el.className = `msg $${role}`;
+      el.textContent = text;
+
+      if (citations && citations.length) {
+        const citationsEl = document.createElement("div");
+        citationsEl.className = "citations";
+        citationsEl.textContent = `Sources: $${citations.join(" | ")}`;
+        el.appendChild(citationsEl);
+      }
+
+      chat.appendChild(el);
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
